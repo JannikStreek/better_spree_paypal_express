@@ -55,6 +55,10 @@ module Spree
         # This is mainly so we can use it later on to refund the payment if the user wishes.
         transaction_id = pp_response.do_express_checkout_payment_response_details.payment_info.first.transaction_id
         express_checkout.update_column(:transaction_id, transaction_id)
+
+        # Also update the payment response code, to support e.g. the credit method
+        express_checkout.payment.update_column(:response_code, transaction_id)
+
         # This is rather hackish, required for payment/processing handle_response code.
         Class.new do
           def success?; true; end
@@ -71,7 +75,12 @@ module Spree
     end
 
     def refund(payment, amount)
+      puts "amoount"
+      puts amount
+      puts "payment amount"
+      puts payment.amount
       refund_type = payment.amount == amount.to_f ? "Full" : "Partial"
+      puts refund_type
       refund_transaction = provider.build_refund_transaction({
         :TransactionID => payment.source.transaction_id,
         :RefundType => refund_type,
@@ -98,6 +107,22 @@ module Spree
         )
       end
       refund_transaction_response
+    end
+
+    def credit(money, response_code, gateway_options = {})
+      #TODO shipment cost are missing
+      payment = Spree::Payment.find_by_response_code(response_code)
+
+      #payment.order.shipment.shipping_methods.where(:selected => 't')
+
+      # refund method expects euros, not cents
+      refund_transaction_response = refund(payment, money/100.00)
+
+      #error / success message here
+      message = ""
+      message = refund_transaction_response.errors.first.LongMessage if(refund_transaction_response.errors.size > 0)
+
+      ActiveMerchant::Billing::Response.new(refund_transaction_response.success?, message)
     end
   end
 end

@@ -57,4 +57,22 @@ describe Spree::Gateway::PayPalExpress do
       lambda { payment.purchase! }.should raise_error(Spree::Core::GatewayError, "An error goes here.")
     end
   end
+
+  context "payment refund" do
+    #credit params: credit_cents, payment.transaction_id, {originator: self}
+    #def credit(money, transaction_id, options = {})
+    let(:payment) do
+      payment = FactoryGirl.create(:payment, :payment_method => gateway, :amount => 10)
+      payment.stub :source => mock_model(Spree::PaypalExpressCheckout, :token => 'fake_token', :payer_id => 'fake_payer_id')
+      payment
+    end
+
+    let(:provider) do
+      provider = double('Provider')
+      gateway.stub(:provider => provider)
+      provider
+    end
+  end
+
+
 end
